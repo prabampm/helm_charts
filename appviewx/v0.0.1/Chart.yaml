@@ -1,0 +1,16 @@
+apiVersion: v1
+name: appviewx
+home: https://github.com/prabampm/appviewx
+icon: 
+version: 0.0.1
+type: application
+appVersion: latest
+description: 'appviewx master helm chart'
+keywords:
+  - appviewx
+  - appviewx
+sources:
+  - https://github.com/prabampm/appviewx
+maintainers:
+  - name: 'Prabakaran K'
+    email: prabakaran.kandasamy@appviewx.com

@@ -1,0 +1,39 @@
+{{- if .Values.ingress.appviewxWorkload.enabled }}
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: {{ template "appviewx.fullname" . }}-appviewx-workload
+  annotations:
+    {{- if (eq .Values.config.clusterType "aks") }}
+    kubernetes.io/ingress.class: addon-http-application-routing
+    {{- else }}
+    kubernetes.io/ingress.class: nginx
+    {{- end }}
+    {{- if .Values.ingress.appviewxWorkload.tls }}
+    {{- if (empty .Values.ingress.appviewxWorkload.certificate) }}
+    cert-manager.io/cluster-issuer: {{ .Values.ingress.appviewxWorkload.issuer.name }}
+    kubernetes.io/tls-acme: 'true'
+    {{- end }}
+    nginx.ingress.kubernetes.io/ssl-redirect: 'true'
+    {{- end }}
+  labels:
+    app: {{ .Release.Name }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  rules:
+    - host: {{ .Values.ingress.appviewxWorkload.hostname }}
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: {{ template "appviewx.fullname" . }}-appviewx-workload
+              servicePort: http
+  {{- if .Values.ingress.appviewxWorkload.tls }}
+  tls:
+    - secretName: {{ template "appviewx.appviewx-workload-certificate" . }}
+      hosts:
+        - {{ .Values.ingress.appviewxWorkload.hostname }}
+  {{- end }}
+{{- end }}

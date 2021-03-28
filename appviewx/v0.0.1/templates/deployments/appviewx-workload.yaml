@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "appviewx.fullname" . }}-appviewx-workload
+  labels:
+    app: {{ .Release.Name }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ template "appviewx.name" . }}-appviewx-workload
+      release: {{ .Release.Name }}
+  strategy:
+    type: {{ .Values.config.updateStrategy }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "appviewx.name" . }}-appviewx-workload
+        release: {{ .Release.Name }}
+      {{- if .Values.persistence.velero.enabled }}
+      annotations:
+        backup.velero.io/backup-volumes: data
+      {{- end }}
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: {{ .Values.persistence.enabled | ternary "91" "89" }}
+              preference:
+                matchExpressions:
+                  - key: application/state
+                    operator: In
+                    values:
+                      - {{ .Values.persistence.enabled | ternary "stateful" "stateless" }}
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 90
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - {{ template "appviewx.name" . }}-appviewx-workload
+      containers:
+        - name: {{ template "appviewx.fullname" . }}-appviewx-workload
+          image: {{ .Values.images.appviewxWorkload.repository }}:{{ .Values.images.appviewxWorkload.tag }}
+          imagePullPolicy: {{ .Values.config.imagePullPolicy }}
+{{- if (and .Values.config.appviewxWorkload.resources.enabled (not (eq .Values.config.appviewxWorkload.resources.enabled "false"))) }}
+          resources:
+{{ toYaml .Values.config.appviewxWorkload.resources | indent 12 }}
+{{- end }}
+          ports:
+            - name: container
+              containerPort: 5004
+          volumeMounts:
+            - name: data
+              mountPath: /_data
+            - name: data
+              mountPath: 'appviewx'
+              subPath: /data/
+          env: []
+          livenessProbe:
+            tcpSocket:
+              port: container
+{{ toYaml .Values.probes.liveness | indent 12 }}
+          readinessProbe:
+            tcpSocket:
+              port: container
+{{ toYaml .Values.probes.readiness | indent 12 }}
+      volumes:
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim.appviewxWorkload | default (printf "%s-appviewx-workload" (include "appviewx.fullname" . )) }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}

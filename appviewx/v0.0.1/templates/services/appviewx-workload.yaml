@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "appviewx.fullname" . }}-appviewx-workload
+  labels:
+    app: {{ .Release.Name }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    {{- if (eq .Values.service.appviewxWorkload.type "ClusterIP") }}
+    kubernetes.io/cluster-service: 'true'
+    {{- end }}
+spec:
+  {{- if .Values.ingress.appviewxWorkload.enabled }}
+  type: ClusterIP
+  {{- else }}
+  type: {{ .Values.service.appviewxWorkload.type }}
+  {{- if (eq .Values.service.appviewxWorkload.type "NodePort") }}
+  externalTrafficPolicy: {{ .Values.service.appviewxWorkload.externalTrafficPolicy }}
+  {{- end }}
+  {{- end }}
+  ports:
+    - name: http
+      port: {{ (eq .Values.service.appviewxWorkload.type "LoadBalancer") | ternary .Values.service.appviewxWorkload.lbPorts.http "80" }}
+      targetPort: container
+      {{- if (and (eq .Values.service.appviewxWorkload.type "NodePort") (not (empty .Values.service.appviewxWorkload.nodePorts.http))) }}
+      nodePort: {{ .Values.service.appviewxWorkload.nodePorts.http }}
+      {{- end }}
+  selector:
+    app: {{ template "appviewx.name" . }}-appviewx-workload
+    release: {{ .Release.Name }}
